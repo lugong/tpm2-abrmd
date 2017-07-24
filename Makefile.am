@@ -26,6 +26,7 @@ TESTS_UNIT = \
     test/command-source_unit \
     test/handle-map-entry_unit \
     test/handle-map_unit \
+    test/ipc-backend_unit \
     test/random_unit \
     test/session-entry_unit \
     test/test-skeleton_unit \
@@ -163,6 +164,8 @@ src_libutil_la_SOURCES = \
     src/handle-map-entry.h \
     src/handle-map.c \
     src/handle-map.h \
+    src/ipc-backend.c \
+    src/ipc-backend.h \
     src/logging.c \
     src/logging.h \
     src/message-queue.c \
@@ -329,6 +332,10 @@ test_handle_map_entry_unit_SOURCES = test/handle-map-entry_unit.c
 test_handle_map_unit_CFLAGS  = $(UNIT_AM_CFLAGS)
 test_handle_map_unit_LDADD   = $(CMOCKA_LIBS) $(GLIB_LIBS) $(SAPI_LIBS) $(PTHREAD_LIBS) $(GOBJECT_LIBS) $(libutil)
 test_handle_map_unit_SOURCES = test/handle-map_unit.c
+
+test_ipc_backend_unit_CFLAGS  = $(UNIT_AM_CFLAGS)
+test_ipc_backend_unit_LDADD   = $(CMOCKA_LIBS) $(GLIB_LIBS) $(GOBJECT_LIBS) $(libutil)
+test_ipc_backend_unit_SOURCES = test/ipc-backend_unit.c
 
 if TCTI_DEVICE
 test_tcti_device_unit_CFLAGS   = $(UNIT_AM_CFLAGS)
