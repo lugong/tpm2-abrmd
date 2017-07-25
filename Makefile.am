@@ -27,6 +27,7 @@ TESTS_UNIT = \
     test/handle-map-entry_unit \
     test/handle-map_unit \
     test/ipc-backend_unit \
+    test/ipc-backend-dbus_unit \
     test/random_unit \
     test/session-entry_unit \
     test/test-skeleton_unit \
@@ -144,6 +145,10 @@ endif # HAVE_SYSTEMD
 VALGRIND_G_DEBUG = fatal-criticals,gc-friendly
 VALGRIND_memcheck_FLAGS = --leak-check=summary --show-leak-kinds=definite,indirect --track-origins=yes
 
+# This is a hack required to ensure that BUILT_SOURCES are generated before
+# the file that requires them.
+src/ipc-backend-dbus.c : $(BUILT_SOURCES)
+
 # utility library with most of the code that makes up the daemon
 src_libutil_la_LIBADD  = $(DBUS_LIBS) $(GIO_LIBS) $(GLIB_LIBS) $(PTHREAD_LIBS) \
     $(SAPI_LIBS)
@@ -166,6 +171,8 @@ src_libutil_la_SOURCES = \
     src/handle-map.h \
     src/ipc-backend.c \
     src/ipc-backend.h \
+    src/ipc-backend-dbus.h \
+    src/ipc-backend-dbus.c \
     src/logging.c \
     src/logging.h \
     src/message-queue.c \
@@ -336,6 +343,10 @@ test_handle_map_unit_SOURCES = test/handle-map_unit.c
 test_ipc_backend_unit_CFLAGS  = $(UNIT_AM_CFLAGS)
 test_ipc_backend_unit_LDADD   = $(CMOCKA_LIBS) $(GLIB_LIBS) $(GOBJECT_LIBS) $(libutil)
 test_ipc_backend_unit_SOURCES = test/ipc-backend_unit.c
+
+test_ipc_backend_dbus_unit_CFLAGS  = $(UNIT_AM_CFLAGS)
+test_ipc_backend_dbus_unit_LDADD   = $(CMOCKA_LIBS) $(GLIB_LIBS) $(GOBJECT_LIBS) $(libutil)
+test_ipc_backend_dbus_unit_SOURCES = test/ipc-backend-dbus_unit.c
 
 if TCTI_DEVICE
 test_tcti_device_unit_CFLAGS   = $(UNIT_AM_CFLAGS)
