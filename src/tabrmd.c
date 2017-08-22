@@ -28,6 +28,7 @@
 #include <fcntl.h>
 #include <gio/gio.h>
 #include <glib.h>
+#include <glib/gstdio.h>
 #include <glib-unix.h>
 #include <inttypes.h>
 #include <stdlib.h>
@@ -50,6 +51,7 @@
 #include "tcti-options.h"
 #include "ipc-backend.h"
 #include "ipc-backend-dbus.h"
+#include "ipc-backend-tls.h"
 
 /* Structure to hold data that we pass to the gmain loop as 'user_data'.
  * This data will be available to events from gmain including events from
@@ -147,13 +149,23 @@ init_thread_func (gpointer user_data)
     if (connection_manager == NULL)
         g_error ("failed to allocate connection_manager");
     g_debug ("ConnectionManager: 0x%" PRIxPTR, (uintptr_t)connection_manager);
+
     /* setup IpcBackend */
-    data->ipc_backend =
-        IPC_BACKEND (ipc_backend_dbus_new (data->options.bus,
-                                           data->options.dbus_name,
-                                           connection_manager,
-                                           data->options.max_transient_objects,
-                                           data->random));
+    if (data->options.ipc_mode_dbus) {
+        data->ipc_backend =
+            IPC_BACKEND (ipc_backend_dbus_new (data->options.bus,
+                                               data->options.dbus_name,
+                                               connection_manager,
+                                               data->options.max_transient_objects,
+                                               data->random));
+    } else {
+        data->ipc_backend =
+            IPC_BACKEND (ipc_backend_tls_new (data->options.socket_ip,
+                                              data->options.socket_port,
+                                              connection_manager,
+                                              data->options.max_transient_objects,
+                                              data->options.cert_file));
+    }
     if (data->ipc_backend == NULL) {
         g_error ("failed to allocate IpcBackend object");
     }
@@ -284,6 +296,7 @@ parse_opts (gint            argc,
             tabrmd_options_t *options)
 {
     gchar *logger_name = "stdout";
+    gchar *ipc_mode = "dbus";
     GOptionContext *ctx;
     GError *err = NULL;
     gboolean session_bus = FALSE;
@@ -292,6 +305,9 @@ parse_opts (gint            argc,
     options->max_transient_objects = MAX_TRANSIENT_OBJECTS_DEFAULT;
     options->dbus_name = TABRMD_DBUS_NAME_DEFAULT;
     options->prng_seed_file = RANDOM_ENTROPY_FILE_DEFAULT;
+    options->socket_ip = IPC_BACKEND_SOCKET_IP_DEFAULT;
+    options->socket_port = IPC_BACKEND_SOCKET_PORT_DEFAULT;
+
 
     GOptionEntry entries[] = {
         { "dbus-name", 'n', 0, G_OPTION_ARG_STRING, &options->dbus_name,
@@ -312,6 +328,14 @@ parse_opts (gint            argc,
         { "prng-seed-file", 'g', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING,
           &options->prng_seed_file, "File to read seed value for PRNG",
           options->prng_seed_file },
+        { "socket-ip", 'A', 0, G_OPTION_ARG_STRING, &options->socket_ip,
+          "Local address to bind to." },
+        { "socket-port", 'P', 0, G_OPTION_ARG_INT, &options->socket_port,
+          "Local port to bind to." },
+        { "tls-cert", 'T', 0, G_OPTION_ARG_FILENAME, &options->cert_file,
+          "Use TLS (SSL) with indicated server certificate" },
+        { "ipc_mode", 'M', 0, G_OPTION_ARG_STRING, &ipc_mode,
+          "The name of desired ipc mode, dbus is default.", "[dbus|tls]"},
         { "version", 'v', G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
           show_version, "Show version string" },
         { NULL },
@@ -329,18 +353,32 @@ parse_opts (gint            argc,
         tabrmd_critical ("Unknown logger: %s, try --help\n", logger_name);
     }
     if (options->max_connections < 1 ||
-        options->max_connections > MAX_CONNECTIONS)
-    {
+        options->max_connections > MAX_CONNECTIONS) {
         tabrmd_critical ("MAX_CONNECTIONS must be between 1 and %d",
                          MAX_CONNECTIONS);
     }
     if (options->max_transient_objects < 1 ||
-        options->max_transient_objects > MAX_TRANSIENT_OBJECTS)
-    {
+        options->max_transient_objects > MAX_TRANSIENT_OBJECTS) {
         tabrmd_critical ("max-trans-obj parameter must be between 1 and %d",
                          MAX_TRANSIENT_OBJECTS);
     }
+    /* check the availability of certificate file */
+    if (options->cert_file) {
+        if (g_access (options->cert_file, R_OK))
+            tabrmd_critical ("certificate file not accessible: %s", strerror(errno));
+    } else {
+        tabrmd_critical ("certificate file must be specified");
+    }
+    if (!g_strcmp0(ipc_mode, "dbus")) {
+        options->ipc_mode_dbus = 1;
+    } else if (!g_strcmp0(ipc_mode, "tls")) {
+        options->ipc_mode_dbus = 0;
+    } else {
+        tabrmd_critical ("IPC mode %s is not supported", ipc_mode);
+    }
+    g_info ("IPC mode is %s", ipc_mode);
     g_option_context_free (ctx);
+
 }
 void
 thread_cleanup (Thread *thread)

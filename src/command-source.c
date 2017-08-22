@@ -288,7 +288,7 @@ process_client_fd (CommandSource      *source,
         g_debug ("connection_manager_lookup_fd for fd %d: 0x%" PRIxPTR, fd,
                  (uintptr_t)connection);
     buf = g_malloc0 (TPM_HEADER_SIZE);
-    ret = read_data (fd, &index, buf, TPM_HEADER_SIZE);
+    ret = read_data (fd, &index, buf, TPM_HEADER_SIZE, connection->iostream_conn);
     if (ret == 0) {
         g_debug_bytes (buf, index, 16, 4);
     } else {
@@ -297,7 +297,7 @@ process_client_fd (CommandSource      *source,
     command_size = get_command_size (buf);
     if (command_size > TPM_HEADER_SIZE && command_size <= UTIL_BUF_MAX) {
         buf = g_realloc (buf, command_size);
-        ret = read_data (fd, &index, buf, command_size - TPM_HEADER_SIZE);
+        ret = read_data (fd, &index, buf, command_size - TPM_HEADER_SIZE, connection->iostream_conn);
         if (ret == 0) {
             g_debug_bytes (buf, index, 16, 4);
         } else {

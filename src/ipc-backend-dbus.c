@@ -406,7 +406,7 @@ on_handle_create_connection (TctiTabrmd            *skeleton,
     handle_map = handle_map_new (TPM_HT_TRANSIENT, self->max_transient_objects);
     if (handle_map == NULL)
         g_error ("Failed to allocate new HandleMap");
-    connection = connection_new (&client_fds[0], &client_fds[1], id_pid_mix, handle_map);
+    connection = connection_new (&client_fds[0], &client_fds[1], id_pid_mix, handle_map, NULL);
     g_object_unref (handle_map);
     if (connection == NULL)
         g_error ("Failed to allocate new connection.");

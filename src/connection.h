@@ -29,6 +29,7 @@
 
 #include <glib.h>
 #include <glib-object.h>
+#include <gio/gio.h>
 
 #include "handle-map.h"
 
@@ -44,6 +45,7 @@ typedef struct _Connection {
     gint                send_fd;
     guint64             id;
     HandleMap          *transient_handle_map;
+    GIOStream          *iostream_conn;
 } Connection;
 
 #define TYPE_CONNECTION              (connection_get_type ())
@@ -57,7 +59,8 @@ GType            connection_get_type     (void);
 Connection*      connection_new          (gint            *receive_fd,
                                           gint            *send_fd,
                                           guint64          id,
-                                          HandleMap       *transient_handle_map);
+                                          HandleMap       *transient_handle_map,
+                                          GIOStream  *iostream_conn);
 gboolean         connection_equal_fd     (gconstpointer    a,
                                           gconstpointer    b);
 gboolean         connection_equal_id     (gconstpointer    a,

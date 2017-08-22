@@ -43,6 +43,7 @@ enum {
     PROP_RECEIVE_FD,
     PROP_SEND_FD,
     PROP_TRANSIENT_HANDLE_MAP,
+    PROP_IOSTREAM_CONN,
     N_PROPERTIES
 };
 static GParamSpec *obj_properties [N_PROPERTIES] = { NULL, };
@@ -79,6 +80,13 @@ connection_set_property (GObject       *object,
                   PRIxPTR, (uintptr_t)self,
                   (uintptr_t)self->transient_handle_map);
         break;
+    case PROP_IOSTREAM_CONN:
+        self->iostream_conn = g_value_get_object (value);
+        g_object_ref (self->iostream_conn);
+        g_debug ("Connection 0x%" PRIxPTR " set iostream_conn to 0x%"
+                  PRIxPTR, (uintptr_t)self,
+                  (uintptr_t)self->iostream_conn);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
         break;
@@ -106,6 +114,9 @@ connection_get_property (GObject     *object,
     case PROP_TRANSIENT_HANDLE_MAP:
         g_value_set_object (value, self->transient_handle_map);
         break;
+    case PROP_IOSTREAM_CONN:
+        g_value_set_object (value, self->iostream_conn);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
         break;
@@ -123,13 +134,19 @@ static void
 connection_finalize (GObject *obj)
 {
     Connection *connection = CONNECTION (obj);
+    GError *error;
 
     g_debug ("connection_finalize: 0x%" PRIxPTR, (uintptr_t)connection);
     if (connection == NULL)
         return;
     close (connection->receive_fd);
     close (connection->send_fd);
+    if (!g_io_stream_close (connection->iostream_conn, NULL, &error)) {
+      g_error ("Error closing connection stream: %s", error->message);
+      return;
+    }
     g_object_unref (connection->transient_handle_map);
+    g_object_unref (connection->iostream_conn);
     if (connection_parent_class)
         G_OBJECT_CLASS (connection_parent_class)->finalize (obj);
 }
@@ -177,6 +194,13 @@ connection_class_init (ConnectionClass *klass)
                              "HandleMap object to map handles to transient object contexts",
                              G_TYPE_OBJECT,
                              G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY);
+    obj_properties [PROP_IOSTREAM_CONN] =
+        g_param_spec_object ("iostream_conn",
+                             "connection of type IOStream",
+                             "connection of type IOStream",
+                             G_TYPE_IO_STREAM,
+                             G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY);
+
     g_object_class_install_properties (object_class,
                                        N_PROPERTIES,
                                        obj_properties);
@@ -228,36 +252,46 @@ Connection*
 connection_new (gint       *receive_fd,
                 gint       *send_fd,
                 guint64     id,
-                HandleMap  *transient_handle_map)
+                HandleMap  *transient_handle_map,
+                GIOStream  *iostream_conn)
 {
-
     g_info ("CreateConnection");
     int ret, connection_fds[2], client_fds[2];
 
-    g_debug ("connection_new creating pipe pairs");
-    ret = create_pipe_pairs (connection_fds, client_fds, O_CLOEXEC);
-    if (ret == -1)
-        g_error ("CreateConnection failed to make pipe pair %s", strerror (errno));
-    /* Make the fds used by the server non-blocking, the client will have to
-     * set its own flags.
-     */
-    ret = set_flags (connection_fds [0], O_NONBLOCK);
-    if (ret == -1)
-        g_error ("Failed to set O_NONBLOCK for server receive fd %d: %s",
-                 connection_fds [0], strerror (errno));
-    ret = set_flags (connection_fds [1], O_NONBLOCK);
-    if (ret == -1)
-        g_error ("Failed to set O_NONBLOCK for server send fd %d: %s",
-                 connection_fds [1], strerror (errno));
-    /* return a receive & send end back for the client */
-    *receive_fd = client_fds[0];
-    *send_fd = client_fds[1];
-
+    if (!iostream_conn) {
+        g_debug ("connection_new creating pipe pairs");
+        ret = create_pipe_pairs (connection_fds, client_fds, O_CLOEXEC);
+        if (ret == -1)
+            g_error ("CreateConnection failed to make pipe pair %s", strerror (errno));
+        /* Make the fds used by the server non-blocking, the client will have to
+         * set its own flags.
+         */
+        ret = set_flags (connection_fds [0], O_NONBLOCK);
+        if (ret == -1)
+            g_error ("Failed to set O_NONBLOCK for server receive fd %d: %s",
+                     connection_fds [0], strerror (errno));
+        ret = set_flags (connection_fds [1], O_NONBLOCK);
+        if (ret == -1)
+            g_error ("Failed to set O_NONBLOCK for server send fd %d: %s",
+                     connection_fds [1], strerror (errno));
+        /* return a receive & send end back for the client */
+        *receive_fd = client_fds[0];
+        *send_fd = client_fds[1];
+    } else {
+        /*
+         * socket mode
+         */
+        connection_fds [0] = *receive_fd;
+        connection_fds [1] = *send_fd;
+        *receive_fd = 0;
+        *send_fd = 0;
+    }
     return CONNECTION (g_object_new (TYPE_CONNECTION,
                                      "id", id,
                                      "receive_fd", connection_fds [0],
                                      "send_fd", connection_fds [1],
                                      "transient-handle-map", transient_handle_map,
+                                     "iostream_conn", iostream_conn,
                                      NULL));
 }
 

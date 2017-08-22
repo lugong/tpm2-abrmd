@@ -67,7 +67,7 @@ tss2_tcti_tabrmd_transmit (TSS2_TCTI_CONTEXT *context,
     g_debug ("blocking on FD_TRANSMIT: %d", TSS2_TCTI_TABRMD_FD_TRANSMIT (context));
     write_ret = write_all (TSS2_TCTI_TABRMD_FD_TRANSMIT (context),
                            command,
-                           size);
+                           size, NULL);
     /* should switch on possible errors to translate to TSS2 error codes */
     switch (write_ret) {
     case -1:
@@ -215,7 +215,8 @@ tss2_tcti_tabrmd_receive (TSS2_TCTI_CONTEXT *context,
         ret = read_data (tabrmd_ctx->fd_receive,
                          &tabrmd_ctx->index,
                          tabrmd_ctx->header_buf,
-                         TPM_HEADER_SIZE - tabrmd_ctx->index);
+                         TPM_HEADER_SIZE - tabrmd_ctx->index,
+                         NULL);
         if (ret != 0) {
             return errno_to_tcti_rc (ret);
         }
@@ -248,7 +249,8 @@ tss2_tcti_tabrmd_receive (TSS2_TCTI_CONTEXT *context,
     ret = read_data (tabrmd_ctx->fd_receive,
                      &tabrmd_ctx->index,
                      response,
-                     tabrmd_ctx->header.size - tabrmd_ctx->index);
+                     tabrmd_ctx->header.size - tabrmd_ctx->index,
+                     NULL);
     if (ret == 0) {
         /* We got all the bytes we asked for, reset the index & state: done */
         *size = tabrmd_ctx->index;

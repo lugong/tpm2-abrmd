@@ -85,22 +85,38 @@ g_debug_bytes (uint8_t const *byte_array,
 ssize_t
 write_all (const gint    fd,
            const void   *buf,
-           const size_t  size)
+           const size_t  size,
+           GIOStream   *conn)
 {
     ssize_t written = 0;
     size_t written_total = 0;
+    int    errno_tmp = 0;
+    GOutputStream *ostream;
+    GCancellable *cancellable = NULL;
+    GError *error = NULL;
 
     do {
         g_debug ("writing %zu bytes starting at 0x%" PRIxPTR " to fd %d",
                  size - written_total,
                  (uintptr_t)buf + written_total,
                  fd);
-        written = write (fd,
-                         buf  + written_total,
-                         size - written_total);
+        if (!conn) {
+            written = write (fd,
+                             buf  + written_total,
+                             size - written_total);
+            errno_tmp = errno;
+        } else {
+            ostream = g_io_stream_get_output_stream (conn);
+            written = g_output_stream_write (ostream,
+                                             buf + written_total,
+                                             size - written_total,
+                                             cancellable,
+                                             &error);
+            errno_tmp = error? error->code : 0;
+        }
         switch (written) {
         case -1:
-            g_warning ("failed to write to fd %d: %s", fd, strerror (errno));
+            g_warning ("failed to write to fd %d: %s", fd, strerror (errno_tmp));
             return written;
         case  0:
             return (ssize_t)written_total;
@@ -143,10 +159,14 @@ int
 read_data (int                       fd,
            size_t                   *index,
            uint8_t                  *buf,
-           size_t                    count)
+           size_t                    count,
+           GIOStream              *conn)
 {
     size_t num_read = 0;
     int    errno_tmp = 0;
+    GInputStream *istream;
+    GCancellable *cancellable = NULL;
+    GError *error = NULL;
 
     /*
      * Index is where we left off. The caller is asking us to read 'count'
@@ -155,10 +175,20 @@ read_data (int                       fd,
     do {
         g_debug ("reading %zd bytes from fd %d, to 0x%" PRIxPTR,
                  count, fd, (uintptr_t)&buf[*index]);
-        num_read = TEMP_FAILURE_RETRY (read (fd,
-                                             &buf[*index],
-                                             count));
-        errno_tmp = errno;
+        if (!conn) {
+            num_read = TEMP_FAILURE_RETRY (read (fd,
+                                                 &buf[*index],
+                                                 count));
+            errno_tmp = errno;
+        } else {
+            istream = g_io_stream_get_input_stream (conn);
+            num_read = g_input_stream_read (istream,
+                                            &buf[*index],
+                                            count,
+                                            cancellable,
+                                            &error);
+            errno_tmp = error? error->code : 0;
+        }
         switch (num_read) {
         case -1: /* error */
             g_warning ("read on fd %d produced error: %d, %s",
@@ -204,7 +234,7 @@ read_tpm_buffer (int                       fd,
     }
     /* If we don't have the whole header yet try to get it. */
     if (*index < TPM_HEADER_SIZE) {
-        ret = read_data (fd, index, buf, TPM_HEADER_SIZE - *index);
+        ret = read_data (fd, index, buf, TPM_HEADER_SIZE - *index, NULL);
         if (ret != 0) {
             /* Pass errors up to the caller. */
             return ret;
@@ -222,7 +252,7 @@ read_tpm_buffer (int                       fd,
         return EPROTO;
     }
     /* Now that we have the header, we know the whole buffer size. Get it. */
-    return read_data (fd, index, buf, size - *index);
+    return read_data (fd, index, buf, size - *index, NULL);
 }
 /* pretty print */
 void

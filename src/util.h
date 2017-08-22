@@ -30,6 +30,7 @@
 #include <glib.h>
 #include <sys/types.h>
 #include <tpm20.h>
+#include <gio/gio.h>
 
 #include "control-message.h"
 
@@ -53,12 +54,14 @@
 
 ssize_t     write_all                       (gint const        fd,
                                              void const       *buf,
-                                             size_t const      size);
+                                             size_t const      size,
+                                             GIOStream       *conn);
 void        process_control_code            (ControlCode       code);
 int         read_data                       (int               fd,
                                              size_t           *index,
                                              uint8_t          *buf,
-                                             size_t            count);
+                                             size_t            count,
+                                             GIOStream     *conn);
 int         read_tpm_buffer                 (int               fd,
                                              size_t           *index,
                                              uint8_t          *buf,
