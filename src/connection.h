@@ -60,7 +60,7 @@ Connection*      connection_new          (gint            *receive_fd,
                                           gint            *send_fd,
                                           guint64          id,
                                           HandleMap       *transient_handle_map,
-                                          GIOStream  *iostream_conn);
+                                          GIOStream       *iostream_conn);
 gboolean         connection_equal_fd     (gconstpointer    a,
                                           gconstpointer    b);
 gboolean         connection_equal_id     (gconstpointer    a,

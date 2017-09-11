@@ -167,6 +167,8 @@ src_libutil_la_SOURCES = \
     src/connection-manager.h \
     src/control-message.c \
     src/control-message.h \
+    src/gtlsconsoleinteraction.c \
+    src/gtlsconsoleinteraction.h \
     src/handle-map-entry.c \
     src/handle-map-entry.h \
     src/handle-map.c \

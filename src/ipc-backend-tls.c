@@ -30,6 +30,7 @@
 
 #include "ipc-backend-tls.h"
 #include "tabrmd.h"
+#include "util.h"
 
 G_DEFINE_TYPE (IpcBackendTls, ipc_backend_tls, TYPE_IPC_BACKEND);
 GSocket *tcti_tabrmd_server_new (const gchar *ip, guint port);
@@ -230,26 +231,6 @@ ipc_backend_tls_new (const gchar     *socket_ip,
     return IPC_BACKEND_TLS (object);
 }
 
-static char *
-socket_address_to_string (GSocketAddress *address)
-{
-  char *res = NULL;
-
-  if (G_IS_INET_SOCKET_ADDRESS (address))
-    {
-      GInetAddress *inet_address;
-      char *str;
-      int port;
-
-      inet_address = g_inet_socket_address_get_address (G_INET_SOCKET_ADDRESS (address));
-      str = g_inet_address_to_string (inet_address);
-      port = g_inet_socket_address_get_port (G_INET_SOCKET_ADDRESS (address));
-      res = g_strdup_printf ("%s:%d", str, port);
-      g_free (str);
-    }
-
-  return res;
-}
 /*
  * Give this function a dbus proxy and invocation object from a method
  * invocation and it will get the PID of the process associated with the
@@ -274,6 +255,7 @@ get_remote_name (GSocket *socket, gchar **name)
 
     return TRUE;
 }
+
 /*
  * Generate a random uint64 returned in the id out paramter.
  * Mix this random ID with the PID from the caller. This is obtained

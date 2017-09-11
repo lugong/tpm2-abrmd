@@ -29,6 +29,7 @@
 
 #include <glib.h>
 #include <pthread.h>
+#include <gio/gio.h>
 
 #include <sapi/tpm20.h>
 
@@ -52,6 +53,8 @@
     ((TSS2_TCTI_TABRMD_CONTEXT*)context)->header
 #define TSS2_TCTI_TABRMD_STATE(context) \
     ((TSS2_TCTI_TABRMD_CONTEXT*)context)->state
+#define TSS2_TCTI_TABRMD_IOSTREAM(context) \
+        ((TSS2_TCTI_TABRMD_CONTEXT*)context)->conn
 
 /*
  * The elements in this enumeration represent the possible states that the
@@ -99,6 +102,7 @@ typedef struct {
     TctiTabrmd                    *proxy;
     tpm_header_t                   header;
     tcti_tabrmd_state_t            state;
+    GIOStream                     *conn;
     size_t                         index;
     uint8_t                        header_buf [TPM_HEADER_SIZE];
 } TSS2_TCTI_TABRMD_CONTEXT;

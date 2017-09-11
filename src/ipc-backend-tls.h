@@ -51,7 +51,7 @@ typedef struct _IpcBackendTls
     /* data set by GObject properties */
     gchar             *socket_ip;
     guint              socket_port;
-    GTlsCertificate    *tls_cert;
+    GTlsCertificate   *tls_cert;
     /* private data */
     guint              max_transient_objects;
     ConnectionManager *connection_manager;

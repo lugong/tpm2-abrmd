@@ -86,7 +86,7 @@ ssize_t
 write_all (const gint    fd,
            const void   *buf,
            const size_t  size,
-           GIOStream   *conn)
+           GIOStream    *conn)
 {
     ssize_t written = 0;
     size_t written_total = 0;
@@ -160,7 +160,7 @@ read_data (int                       fd,
            size_t                   *index,
            uint8_t                  *buf,
            size_t                    count,
-           GIOStream              *conn)
+           GIOStream                *conn)
 {
     size_t num_read = 0;
     int    errno_tmp = 0;
@@ -282,4 +282,24 @@ set_flags (const int fd,
         ret = fcntl(fd, F_SETFL, local_flags | flags);
     }
     return ret;
+}
+char *
+socket_address_to_string (GSocketAddress *address)
+{
+  char *res = NULL;
+
+  if (G_IS_INET_SOCKET_ADDRESS (address))
+    {
+      GInetAddress *inet_address;
+      char *str;
+      int port;
+
+      inet_address = g_inet_socket_address_get_address (G_INET_SOCKET_ADDRESS (address));
+      str = g_inet_address_to_string (inet_address);
+      port = g_inet_socket_address_get_port (G_INET_SOCKET_ADDRESS (address));
+      res = g_strdup_printf ("%s:%d", str, port);
+      g_free (str);
+    }
+
+  return res;
 }

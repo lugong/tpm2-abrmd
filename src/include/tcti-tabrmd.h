@@ -31,6 +31,7 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
 #include <sapi/tpm20.h>
 #include <sapi/tss2_tcti.h>
 
@@ -48,6 +49,12 @@ TSS2_RC tss2_tcti_tabrmd_init_full (TSS2_TCTI_CONTEXT      *context,
                                     size_t                 *size,
                                     TCTI_TABRMD_DBUS_TYPE   bus,
                                     const char             *name);
+TSS2_RC tss2_tcti_tabrmd_tls_init (TSS2_TCTI_CONTEXT      *context,
+                                   size_t                 *size,
+                                   const char             *ip_addr,
+                                   unsigned int            port,
+                                   const char             *cert_file,
+                                   bool                    tls_enabled);
 
 #ifdef __cplusplus
 }
