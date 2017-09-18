@@ -38,6 +38,7 @@ extern "C" {
 #define TCTI_TABRMD_DBUS_INTERFACE_DEFAULT "com.intel.tss2.TctiTabrmd"
 #define TCTI_TABRMD_DBUS_NAME_DEFAULT      "com.intel.tss2.Tabrmd"
 #define TCTI_TABRMD_DBUS_TYPE_DEFAULT      TCTI_TABRMD_DBUS_TYPE_SYSTEM
+#define TCTI_TABRMD_TLS_PORT_DEFAULT       4433
 
 typedef enum {
     TCTI_TABRMD_DBUS_TYPE_SESSION,

@@ -37,23 +37,16 @@ ipc_backend_tls_setup (void **state)
 {
     IpcBackendTls *ipc_backend_tls = NULL;
     ConnectionManager *connection_manager = NULL;
-    Random            *random = NULL;
-    gint ret = 0;
-
-    random = random_new ();
-    ret = random_seed_from_file (random, "/dev/urandom");
-    assert_int_equal (ret, 0);
 
     connection_manager = connection_manager_new (100);
 
-    ipc_backend_tls = ipc_backend_dbus_new (IPC_BACKEND_DBUS_TYPE_DEFAULT,
-                                             IPC_BACKEND_DBUS_NAME_DEFAULT,
-                                             connection_manager,
-                                             100,
-                                             random);
+    ipc_backend_tls = ipc_backend_tls_new (IPC_BACKEND_SOCKET_IP_DEFAULT,
+                                           IPC_BACKEND_SOCKET_PORT_DEFAULT,
+                                           connection_manager,
+                                           100,
+                                           NULL);
     assert_non_null (ipc_backend_tls);
     *state = ipc_backend_tls;
-    g_object_unref (random);
     g_object_unref (connection_manager);
 }
 

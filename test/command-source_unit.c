@@ -203,7 +203,7 @@ command_source_connection_insert_test (void **state)
 
     /* */
     handle_map = handle_map_new (TPM_HT_TRANSIENT, MAX_ENTRIES_DEFAULT);
-    connection = connection_new (&receive_fd, &send_fd, 5, handle_map);
+    connection = connection_new (&receive_fd, &send_fd, 5, handle_map, NULL);
     g_object_unref (handle_map);
     assert_false (FD_ISSET (connection->receive_fd, &source->receive_fdset));
     ret = thread_start(THREAD (source));
@@ -235,8 +235,8 @@ command_source_connection_teardown (void **state)
 {
     source_test_data_t *data = (source_test_data_t*)*state;
 
-    thread_cancel (THREAD (data->source));
-    thread_join (THREAD (data->source));
+//    thread_cancel (THREAD (data->source));
+//    thread_join (THREAD (data->source));
 
     g_object_unref (data->source);
     g_object_unref (data->manager);
@@ -272,7 +272,7 @@ command_source_process_client_fd_test (void **state)
                           0x0,  0x0,  0x0,  0x7f, 0x0a };
 
     handle_map = handle_map_new (TPM_HT_TRANSIENT, MAX_ENTRIES_DEFAULT);
-    connection = connection_new (&fds[0], &fds[1], 0, handle_map);
+    connection = connection_new (&fds[0], &fds[1], 0, handle_map, NULL);
     g_object_unref (handle_map);
         /* prime wraps */
     will_return (__wrap_connection_manager_lookup_fd, connection);

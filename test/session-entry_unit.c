@@ -55,7 +55,8 @@ session_entry_setup (void **state)
     data->connection = connection_new (&data->receive_fd,
                                        &data->send_fd,
                                        CLIENT_ID,
-                                       data->handle_map);
+                                       data->handle_map,
+                                       NULL);
     data->session_entry = session_entry_new (data->connection, TEST_HANDLE);
 
     *state = data;

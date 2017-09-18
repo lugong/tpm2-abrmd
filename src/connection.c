@@ -82,7 +82,9 @@ connection_set_property (GObject       *object,
         break;
     case PROP_IOSTREAM_CONN:
         self->iostream_conn = g_value_get_object (value);
-        g_object_ref (self->iostream_conn);
+        if (self->iostream_conn) {
+            g_object_ref (self->iostream_conn);
+        }
         g_debug ("Connection 0x%" PRIxPTR " set iostream_conn to 0x%"
                   PRIxPTR, (uintptr_t)self,
                   (uintptr_t)self->iostream_conn);
@@ -139,14 +141,16 @@ connection_finalize (GObject *obj)
     g_debug ("connection_finalize: 0x%" PRIxPTR, (uintptr_t)connection);
     if (connection == NULL)
         return;
-    close (connection->receive_fd);
-    close (connection->send_fd);
-    if (!g_io_stream_close (connection->iostream_conn, NULL, &error)) {
-      g_error ("Error closing connection stream: %s", error->message);
-      return;
+    if (!connection->iostream_conn) {
+        close (connection->receive_fd);
+        close (connection->send_fd);
+    } else {
+        if (!g_io_stream_close (connection->iostream_conn, NULL, &error)) {
+          g_error ("Error closing connection stream: %s", error->message);
+        }
+        g_object_unref (connection->iostream_conn);
     }
     g_object_unref (connection->transient_handle_map);
-    g_object_unref (connection->iostream_conn);
     if (connection_parent_class)
         G_OBJECT_CLASS (connection_parent_class)->finalize (obj);
 }

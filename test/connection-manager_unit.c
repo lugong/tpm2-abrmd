@@ -79,7 +79,7 @@ connection_manager_insert_test (void **state)
     gint ret, receive_fd, send_fd;
 
     handle_map = handle_map_new (TPM_HT_TRANSIENT, MAX_ENTRIES_DEFAULT);
-    connection = connection_new (&receive_fd, &send_fd, 5, handle_map);
+    connection = connection_new (&receive_fd, &send_fd, 5, handle_map, NULL);
     g_object_unref (handle_map);
     ret = connection_manager_insert (manager, connection);
     assert_int_equal (ret, 0);
@@ -94,7 +94,7 @@ connection_manager_lookup_fd_test (void **state)
     gint ret, receive_fd, send_fd;
 
     handle_map = handle_map_new (TPM_HT_TRANSIENT, MAX_ENTRIES_DEFAULT);
-    connection = connection_new (&receive_fd, &send_fd, 5, handle_map);
+    connection = connection_new (&receive_fd, &send_fd, 5, handle_map, NULL);
     g_object_unref (handle_map);
     ret = connection_manager_insert (manager, connection);
     assert_int_equal (ret, TSS2_RC_SUCCESS);
@@ -112,7 +112,7 @@ connection_manager_lookup_id_test (void **state)
     gint ret, receive_fd, send_fd;
 
     handle_map = handle_map_new (TPM_HT_TRANSIENT, MAX_ENTRIES_DEFAULT);
-    connection = connection_new (&receive_fd, &send_fd, 5, handle_map);
+    connection = connection_new (&receive_fd, &send_fd, 5, handle_map, NULL);
     g_object_unref (handle_map);
     ret = connection_manager_insert (manager, connection);
     assert_int_equal (ret, TSS2_RC_SUCCESS);
@@ -130,7 +130,7 @@ connection_manager_remove_test (void **state)
     gboolean ret_bool;
 
     handle_map = handle_map_new (TPM_HT_TRANSIENT, MAX_ENTRIES_DEFAULT);
-    connection = connection_new (&receive_fd, &send_fd, 5, handle_map);
+    connection = connection_new (&receive_fd, &send_fd, 5, handle_map, NULL);
     g_object_unref (handle_map);
     ret_int = connection_manager_insert (manager, connection);
     assert_int_equal (ret_int, 0);

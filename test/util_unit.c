@@ -53,7 +53,7 @@ write_in_one (void **state)
     ssize_t written;
 
     will_return (__wrap_write, WRITE_SIZE);
-    written = write_all (0, NULL, WRITE_SIZE);
+    written = write_all (0, NULL, WRITE_SIZE, NULL);
     assert_int_equal (written, WRITE_SIZE);
 }
 
@@ -64,7 +64,7 @@ write_in_two (void **state)
 
     will_return (__wrap_write, 5);
     will_return (__wrap_write, 5);
-    written = write_all (0, NULL, WRITE_SIZE);
+    written = write_all (0, NULL, WRITE_SIZE, NULL);
     assert_int_equal (written, WRITE_SIZE);
 }
 
@@ -76,7 +76,7 @@ write_in_three (void **state)
     will_return (__wrap_write, 3);
     will_return (__wrap_write, 3);
     will_return (__wrap_write, 4);
-    written = write_all (0, NULL, WRITE_SIZE);
+    written = write_all (0, NULL, WRITE_SIZE, NULL);
     assert_int_equal (written, WRITE_SIZE);
 }
 
@@ -86,7 +86,7 @@ write_error (void **state)
     ssize_t written;
 
     will_return (__wrap_write, -1);
-    written = write_all (0, NULL, WRITE_SIZE);
+    written = write_all (0, NULL, WRITE_SIZE, NULL);
     assert_int_equal (written, -1);
 }
 
@@ -96,7 +96,7 @@ write_zero (void **state)
     ssize_t written;
 
     will_return (__wrap_write, 0);
-    written = write_all (0, NULL, WRITE_SIZE);
+    written = write_all (0, NULL, WRITE_SIZE, NULL);
     assert_int_equal (written, 0);
 }
 /*
@@ -182,7 +182,7 @@ read_data_success_test (void **state)
     will_return (__wrap_read, 0);
     will_return (__wrap_read, data->buf_size);
 
-    ret = read_data (data->fd, &data->index, data->buf_out, data->buf_size);
+    ret = read_data (data->fd, &data->index, data->buf_out, data->buf_size, NULL);
     assert_int_equal (ret, 0);
     assert_int_equal (data->index, data->buf_size);
     assert_memory_equal (data->buf_out, buf_in, data->buf_size);
@@ -202,7 +202,7 @@ read_data_error_test (void **state)
     will_return (__wrap_read, EIO);
     will_return (__wrap_read, -1);
 
-    ret = read_data (data->fd, &data->index, data->buf_out, data->buf_size);
+    ret = read_data (data->fd, &data->index, data->buf_out, data->buf_size, NULL);
     assert_int_equal (ret, EIO);
     assert_int_equal (data->index, 0);
 }
@@ -228,7 +228,7 @@ read_data_short_success_test (void **state)
     will_return (__wrap_read, 0);
     will_return (__wrap_read, data->buf_size / 2);
 
-    ret = read_data (data->fd, &data->index, data->buf_out, data->buf_size);
+    ret = read_data (data->fd, &data->index, data->buf_out, data->buf_size, NULL);
     assert_int_equal (ret, 0);
     assert_int_equal (data->index, data->buf_size);
     assert_memory_equal (data->buf_out, buf_in, data->buf_size);
@@ -257,7 +257,7 @@ read_data_short_err_test (void **state)
     will_return (__wrap_read, EAGAIN);
     will_return (__wrap_read, -1);
     /* read the second half of the buffer, the index maintains the state */
-    ret = read_data (data->fd, &data->index, data->buf_out, data->buf_size);
+    ret = read_data (data->fd, &data->index, data->buf_out, data->buf_size, NULL);
     assert_int_equal (ret, EAGAIN);
     assert_int_equal (data->index, data->buf_size / 2);
     assert_memory_equal (data->buf_out, buf_in, data->buf_size / 2);
@@ -277,7 +277,7 @@ read_data_eof_test (void **state)
     will_return (__wrap_read, 0);
     will_return (__wrap_read, 0);
 
-    ret = read_data (data->fd, &data->index, data->buf_out, data->buf_size);
+    ret = read_data (data->fd, &data->index, data->buf_out, data->buf_size, NULL);
     assert_int_equal (ret, -1);
     assert_int_equal (data->index, 0);
 }
@@ -306,7 +306,7 @@ read_data_eintr_test (void **state)
     will_return (__wrap_read, 0);
     will_return (__wrap_read, data->buf_size);
     /* read the second half of the buffer, the index maintains the state */
-    ret = read_data (data->fd, &data->index, data->buf_out, data->buf_size);
+    ret = read_data (data->fd, &data->index, data->buf_out, data->buf_size, NULL);
     assert_int_equal (ret, 0);
     assert_int_equal (data->index, data->buf_size);
     assert_memory_equal (data->buf_out, buf_in, data->buf_size);
@@ -337,7 +337,8 @@ read_tpm_buf_success_test (void **state)
     ret = read_tpm_buffer (data->fd,
                            &data->index,
                            data->buf_out,
-                           data->buf_size);
+                           data->buf_size,
+                           NULL);
     assert_int_equal (ret, 0);
     assert_int_equal (data->index, data->buf_size);
     assert_memory_equal (data->buf_out, buf_in, data->buf_size);
@@ -365,7 +366,8 @@ read_tpm_buf_header_only_success_test (void **state)
     ret = read_tpm_buffer (data->fd,
                            &data->index,
                            data->buf_out,
-                           data->buf_size);
+                           data->buf_size,
+                           NULL);
     assert_int_equal (ret, 0);
     assert_int_equal (data->index, data->buf_size);
     assert_memory_equal (data->buf_out, buf, data->buf_size);
@@ -380,7 +382,7 @@ read_tpm_buf_lt_header_test (void **state)
     data_t *data = *state;
     int ret = 0;
 
-    ret = read_tpm_buffer (data->fd, &data->index, data->buf_out, 8);
+    ret = read_tpm_buffer (data->fd, &data->index, data->buf_out, 8, NULL);
     assert_int_equal (ret, EPROTO);
     assert_int_equal (data->index, 0);
 }
@@ -408,7 +410,8 @@ read_tpm_buf_short_header_test (void **state)
     ret = read_tpm_buffer (data->fd,
                            &data->index,
                            data->buf_out,
-                           data->buf_size);
+                           data->buf_size,
+                           NULL);
     assert_int_equal (ret, EWOULDBLOCK);
     assert_int_equal (data->index, 4);
     assert_memory_equal (data->buf_out, buf_in, data->index);
@@ -432,7 +435,7 @@ read_tpm_buf_lt_body_test (void **state)
     will_return (__wrap_read, 0);
     will_return (__wrap_read, 10);
 
-    ret = read_tpm_buffer (data->fd, &data->index, data->buf_out, 11);
+    ret = read_tpm_buffer (data->fd, &data->index, data->buf_out, 11, NULL);
     assert_int_equal (ret, EPROTO);
     assert_int_equal (data->index, 10);
     assert_memory_equal (data->buf_out, buf_in, 10);
@@ -470,7 +473,8 @@ read_tpm_buf_short_body_test (void **state)
     ret = read_tpm_buffer (data->fd,
                            &data->index,
                            data->buf_out,
-                           data->buf_size);
+                           data->buf_size,
+                           NULL);
     assert_int_equal (ret, 0);
     assert_int_equal (data->index, data->buf_size);
     assert_memory_equal (data->buf_out, buf_in, data->buf_size);
@@ -511,7 +515,8 @@ read_tpm_buf_populated_header_half_test (void **state)
     ret = read_tpm_buffer (data->fd,
                            &data->index,
                            data->buf_out,
-                           data->buf_size);
+                           data->buf_size,
+                           NULL);
     assert_int_equal (ret, 0);
     assert_int_equal (data->index, data->buf_size);
     assert_memory_equal (data->buf_out, buf_in, data->buf_size);
@@ -540,7 +545,8 @@ read_tpm_buf_populated_header_only_test (void **state)
     ret = read_tpm_buffer (data->fd,
                            &data->index,
                            data->buf_out,
-                           data->buf_size);
+                           data->buf_size,
+                           NULL);
     assert_int_equal (ret, 0);
     assert_int_equal (data->index, data->buf_size);
     assert_memory_equal (data->buf_out, buf, data->buf_size);
@@ -570,7 +576,8 @@ read_tpm_buf_populated_body_test (void **state)
     ret = read_tpm_buffer (data->fd,
                            &data->index,
                            data->buf_out,
-                           data->buf_size);
+                           data->buf_size,
+                           NULL);
     assert_int_equal (ret, 0);
     assert_int_equal (data->index, data->buf_size);
     assert_memory_equal (data->buf_out, buf_in, data->buf_size);

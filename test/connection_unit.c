@@ -97,7 +97,7 @@ connection_allocate_test (void **state)
     gint receive_fd, send_fd;
 
     handle_map = handle_map_new (TPM_HT_TRANSIENT, MAX_ENTRIES_DEFAULT);
-    connection = connection_new (&receive_fd, &send_fd, 0, handle_map);
+    connection = connection_new (&receive_fd, &send_fd, 0, handle_map, NULL);
     assert_non_null (connection);
     assert_true (receive_fd >= 0);
     assert_true (send_fd >= 0);
@@ -114,7 +114,7 @@ connection_setup (void **state)
     data = calloc (1, sizeof (connection_test_data_t));
     assert_non_null (data);
     handle_map = handle_map_new (TPM_HT_TRANSIENT, MAX_ENTRIES_DEFAULT);
-    data->connection = connection_new (&data->receive_fd, &data->send_fd, 0, handle_map);
+    data->connection = connection_new (&data->receive_fd, &data->send_fd, 0, handle_map, NULL);
     assert_non_null (data->connection);
     g_object_unref (handle_map);
     *state = data;

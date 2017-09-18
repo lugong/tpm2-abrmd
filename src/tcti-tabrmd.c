@@ -218,7 +218,7 @@ tss2_tcti_tabrmd_receive (TSS2_TCTI_CONTEXT *context,
                          &tabrmd_ctx->index,
                          tabrmd_ctx->header_buf,
                          TPM_HEADER_SIZE - tabrmd_ctx->index,
-                         NULL);
+                         tabrmd_ctx->conn);
         if (ret != 0) {
             return errno_to_tcti_rc (ret);
         }
@@ -280,6 +280,7 @@ tss2_tcti_tabrmd_finalize (TSS2_TCTI_CONTEXT *context)
             g_printerr ("Error closing connection: %s\n", error->message);
             return;
         }
+        TSS2_TCTI_TABRMD_STATE (context) = TABRMD_STATE_FINAL;
         g_object_unref (TSS2_TCTI_TABRMD_IOSTREAM (context));
 
     } else {
@@ -539,22 +540,22 @@ check_server_certificate (GTlsClientConnection *conn,
                         GTlsCertificateFlags  errors,
                         gpointer              user_data)
 {
-  g_print ("Certificate would have been rejected ( ");
-  if (errors & G_TLS_CERTIFICATE_UNKNOWN_CA)
-    g_print ("unknown-ca ");
-  if (errors & G_TLS_CERTIFICATE_BAD_IDENTITY)
-    g_print ("bad-identity ");
-  if (errors & G_TLS_CERTIFICATE_NOT_ACTIVATED)
-    g_print ("not-activated ");
-  if (errors & G_TLS_CERTIFICATE_EXPIRED)
-    g_print ("expired ");
-  if (errors & G_TLS_CERTIFICATE_REVOKED)
-    g_print ("revoked ");
-  if (errors & G_TLS_CERTIFICATE_INSECURE)
-    g_print ("insecure ");
-  g_print (") but accepting anyway.\n");
+    g_print ("Certificate would have been rejected ( ");
+    if (errors & G_TLS_CERTIFICATE_UNKNOWN_CA)
+        g_print ("unknown-ca ");
+    if (errors & G_TLS_CERTIFICATE_BAD_IDENTITY)
+        g_print ("bad-identity ");
+    if (errors & G_TLS_CERTIFICATE_NOT_ACTIVATED)
+        g_print ("not-activated ");
+    if (errors & G_TLS_CERTIFICATE_EXPIRED)
+        g_print ("expired ");
+    if (errors & G_TLS_CERTIFICATE_REVOKED)
+        g_print ("revoked ");
+    if (errors & G_TLS_CERTIFICATE_INSECURE)
+        g_print ("insecure ");
+    g_print (") but accepting anyway.\n");
 
-  return TRUE;
+    return TRUE;
 }
 
 static gboolean
@@ -588,7 +589,9 @@ tcti_tabrmd_call_create_connection_tls (const char       *host_and_port,
     if (read_timeout)
       g_socket_set_timeout (*socket, read_timeout);
 
-    connectable = g_network_address_parse (host_and_port, 4433, error);
+    connectable = g_network_address_parse (host_and_port,
+                                           TCTI_TABRMD_TLS_PORT_DEFAULT,
+                                           error);
     if (connectable == NULL) {
         g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
                     "Could not parse '%s' as unix socket name", host_and_port);
@@ -606,7 +609,8 @@ tcti_tabrmd_call_create_connection_tls (const char       *host_and_port,
         }
         if (g_socket_connect (*socket, address, cancellable, &err))
             break;
-        g_message ("Connection to %s failed: %s, trying next\n", socket_address_to_string (address), err->message);
+        g_message ("Connection to %s failed: %s, trying next\n",
+                   socket_address_to_string (address), err->message);
         g_clear_error (&err);
         g_object_unref (address);
     }

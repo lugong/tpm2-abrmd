@@ -223,7 +223,8 @@ int
 read_tpm_buffer (int                       fd,
                  size_t                   *index,
                  uint8_t                  *buf,
-                 size_t                    buf_size)
+                 size_t                    buf_size,
+                 GIOStream                *conn)
 {
     ssize_t ret = 0;
     uint32_t size = 0;
@@ -234,7 +235,7 @@ read_tpm_buffer (int                       fd,
     }
     /* If we don't have the whole header yet try to get it. */
     if (*index < TPM_HEADER_SIZE) {
-        ret = read_data (fd, index, buf, TPM_HEADER_SIZE - *index, NULL);
+        ret = read_data (fd, index, buf, TPM_HEADER_SIZE - *index, conn);
         if (ret != 0) {
             /* Pass errors up to the caller. */
             return ret;
@@ -252,7 +253,7 @@ read_tpm_buffer (int                       fd,
         return EPROTO;
     }
     /* Now that we have the header, we know the whole buffer size. Get it. */
-    return read_data (fd, index, buf, size - *index, NULL);
+    return read_data (fd, index, buf, size - *index, conn);
 }
 /* pretty print */
 void

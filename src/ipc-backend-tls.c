@@ -79,7 +79,8 @@ ipc_backend_tls_set_property (GObject      *object,
         break;
     case PROP_TLS_CERT:
         self->tls_cert = g_value_get_object (value);
-        g_object_ref (self->tls_cert);
+        if (self->tls_cert)
+            g_object_ref (self->tls_cert);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -204,29 +205,31 @@ ipc_backend_tls_class_init (IpcBackendTlsClass *klass)
 }
 
 IpcBackendTls*
-ipc_backend_tls_new (const gchar     *socket_ip,
-                      guint socket_port,
-                      ConnectionManager *connection_manager,
-                      guint              max_trans,
-                      const gchar    *cert_file)
+ipc_backend_tls_new (const gchar       *socket_ip,
+                     guint              socket_port,
+                     ConnectionManager *connection_manager,
+                     guint              max_trans,
+                     const gchar       *cert_file)
 {
     GObject *object = NULL;
     GTlsCertificate *tls_cert = NULL;
     GError *err = NULL;
 
-    tls_cert = g_tls_certificate_new_from_file (cert_file, &err);
-    if (!tls_cert) {
-        g_error ("Could not read server certificate '%s': %s",
-                 cert_file, err->message);
-        return NULL;
-    }
+    if (cert_file) {
+        tls_cert = g_tls_certificate_new_from_file (cert_file, &err);
+        if (!tls_cert) {
+            g_error ("Could not read server certificate '%s': %s",
+                     cert_file, err->message);
+            return NULL;
+        }
+     }
 
     object = g_object_new (TYPE_IPC_BACKEND_TLS,
-                           "socket-ip",           socket_ip,
-                           "socket-port",           socket_port,
+                           "socket-ip",          socket_ip,
+                           "socket-port",        socket_port,
                            "connection-manager", connection_manager,
                            "max-trans",          max_trans,
-                           "tls-cert",              tls_cert,
+                           "tls-cert",           tls_cert,
                            NULL);
     return IPC_BACKEND_TLS (object);
 }

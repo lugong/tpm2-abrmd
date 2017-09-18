@@ -95,7 +95,7 @@ tpm2_command_setup_base (void **state)
     /* allocate a buffer large enough to hold a TPM2 header and 3 handles */
     data->buffer = calloc (1, TPM_RESPONSE_HEADER_SIZE + sizeof (TPM_HANDLE) * 3);
     handle_map = handle_map_new (TPM_HT_TRANSIENT, MAX_ENTRIES_DEFAULT);
-    data->connection = connection_new (&fds[0], &fds[1], 0, handle_map);
+    data->connection = connection_new (&fds[0], &fds[1], 0, handle_map, NULL);
     g_object_unref (handle_map);
     *state = data;
 }
@@ -155,7 +155,7 @@ tpm2_command_setup_with_auths (void **state)
     data->buffer = calloc (1, sizeof (cmd_with_auths));
     memcpy (data->buffer, cmd_with_auths, sizeof (cmd_with_auths));
     handle_map = handle_map_new (TPM_HT_TRANSIENT, MAX_ENTRIES_DEFAULT);
-    data->connection = connection_new (&fds[0], &fds[1], 0, handle_map);
+    data->connection = connection_new (&fds[0], &fds[1], 0, handle_map, NULL);
     g_object_unref (handle_map);
     data->command = tpm2_command_new (data->connection,
                                       data->buffer,
