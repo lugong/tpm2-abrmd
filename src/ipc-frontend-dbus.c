@@ -369,7 +369,7 @@ on_handle_create_connection (TctiTabrmd            *skeleton,
     IpcFrontendDbus *self = NULL;
     HandleMap   *handle_map = NULL;
     Connection *connection = NULL;
-    gint client_fds[2] = { 0, 0 }, ret = 0;
+    gint client_fd = 0, ret = 0;
     GVariant *response_variants[2], *response_tuple;
     GUnixFDList *fd_list = NULL;
     guint64 id = 0, id_pid_mix = 0;
@@ -406,14 +406,14 @@ on_handle_create_connection (TctiTabrmd            *skeleton,
     handle_map = handle_map_new (TPM_HT_TRANSIENT, self->max_transient_objects);
     if (handle_map == NULL)
         g_error ("Failed to allocate new HandleMap");
-    connection = connection_new (&client_fds[0], &client_fds[1], id_pid_mix, handle_map);
+    connection = connection_new (&client_fd, id_pid_mix, handle_map, NULL);
     g_object_unref (handle_map);
     if (connection == NULL)
         g_error ("Failed to allocate new connection.");
-    g_debug ("Created connection with fds: %d, %d and id: 0x%" PRIx64,
-             client_fds[0], client_fds[1], id_pid_mix);
+    g_debug ("Created connection with fds: %d and id: 0x%" PRIx64,
+             client_fd, id_pid_mix);
     /* prepare tuple variant for response message */
-    fd_list = g_unix_fd_list_new_from_array (client_fds, 2);
+    fd_list = g_unix_fd_list_new_from_array (&client_fd, 1);
     response_variants[0] = handle_array_variant_from_fdlist (fd_list);
     /* return the random id to client, *not* xor'd with PID */
     response_variants[1] = g_variant_new_uint64 (id);

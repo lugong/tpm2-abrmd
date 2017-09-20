@@ -40,6 +40,7 @@
 #include "tcti-tabrmd-priv.h"
 #include "tpm2-header.h"
 #include "util.h"
+#include "gtlsconsoleinteraction.h"
 
 static TSS2_RC
 tss2_tcti_tabrmd_transmit (TSS2_TCTI_CONTEXT *context,
@@ -67,7 +68,8 @@ tss2_tcti_tabrmd_transmit (TSS2_TCTI_CONTEXT *context,
     g_debug ("blocking on FD_TRANSMIT: %d", TSS2_TCTI_TABRMD_FD (context));
     write_ret = write_all (TSS2_TCTI_TABRMD_FD (context),
                            command,
-                           size);
+                           size,
+                           TSS2_TCTI_TABRMD_IOSTREAM (context));
     /* should switch on possible errors to translate to TSS2 error codes */
     switch (write_ret) {
     case -1:
@@ -215,7 +217,8 @@ tss2_tcti_tabrmd_receive (TSS2_TCTI_CONTEXT *context,
         ret = read_data (TSS2_TCTI_TABRMD_FD (tabrmd_ctx),
                          &tabrmd_ctx->index,
                          tabrmd_ctx->header_buf,
-                         TPM_HEADER_SIZE - tabrmd_ctx->index);
+                         TPM_HEADER_SIZE - tabrmd_ctx->index,
+                         tabrmd_ctx->conn);
         if (ret != 0) {
             return errno_to_tcti_rc (ret);
         }
@@ -248,7 +251,8 @@ tss2_tcti_tabrmd_receive (TSS2_TCTI_CONTEXT *context,
     ret = read_data (TSS2_TCTI_TABRMD_FD (tabrmd_ctx),
                      &tabrmd_ctx->index,
                      response,
-                     tabrmd_ctx->header.size - tabrmd_ctx->index);
+                     tabrmd_ctx->header.size - tabrmd_ctx->index,
+                     TSS2_TCTI_TABRMD_IOSTREAM(tabrmd_ctx));
     if (ret == 0) {
         /* We got all the bytes we asked for, reset the index & state: done */
         *size = tabrmd_ctx->index;
@@ -261,6 +265,8 @@ tss2_tcti_tabrmd_receive (TSS2_TCTI_CONTEXT *context,
 static void
 tss2_tcti_tabrmd_finalize (TSS2_TCTI_CONTEXT *context)
 {
+    GCancellable *cancellable = NULL;
+    GError *error = NULL;
     int ret = 0;
 
     g_debug ("tss2_tcti_tabrmd_finalize");
@@ -268,15 +274,24 @@ tss2_tcti_tabrmd_finalize (TSS2_TCTI_CONTEXT *context)
         g_warning ("Invalid parameter");
         return;
     }
-    if (TSS2_TCTI_TABRMD_FD (context) != 0) {
-        ret = close (TSS2_TCTI_TABRMD_FD (context));
-        TSS2_TCTI_TABRMD_FD (context) = 0;
+    if (TSS2_TCTI_TABRMD_IOSTREAM (context)) {
+        if (!g_io_stream_close (TSS2_TCTI_TABRMD_IOSTREAM (context), cancellable, &error)) {
+            g_printerr ("Error closing connection: %s\n", error->message);
+        }
+        TSS2_TCTI_TABRMD_STATE (context) = TABRMD_STATE_FINAL;
+        g_object_unref (TSS2_TCTI_TABRMD_IOSTREAM (context));
+
+    } else {
+        if (TSS2_TCTI_TABRMD_FD (context) != 0) {
+            ret = close (TSS2_TCTI_TABRMD_FD (context));
+            TSS2_TCTI_TABRMD_FD (context) = 0;
+        }
+        if (ret != 0 && ret != EBADF) {
+            g_warning ("Failed to close receive pipe: %s", strerror (errno));
+        }
+        TSS2_TCTI_TABRMD_STATE (context) = TABRMD_STATE_FINAL;
+        g_object_unref (TSS2_TCTI_TABRMD_PROXY (context));
     }
-    if (ret != 0 && ret != EBADF) {
-        g_warning ("Failed to close receive pipe: %s", strerror (errno));
-    }
-    TSS2_TCTI_TABRMD_STATE (context) = TABRMD_STATE_FINAL;
-    g_object_unref (TSS2_TCTI_TABRMD_PROXY (context));
 }
 
 static TSS2_RC
@@ -502,4 +517,215 @@ tss2_tcti_tabrmd_init (TSS2_TCTI_CONTEXT *context,
                                        size,
                                        TCTI_TABRMD_DBUS_TYPE_DEFAULT,
                                        TCTI_TABRMD_DBUS_NAME_DEFAULT);
+}
+
+static gboolean
+check_server_certificate (GTlsClientConnection *conn,
+                        GTlsCertificate      *cert,
+                        GTlsCertificateFlags  errors,
+                        gpointer              user_data)
+{
+    g_print ("Certificate would have been rejected ( ");
+    if (errors & G_TLS_CERTIFICATE_UNKNOWN_CA)
+        g_print ("unknown-ca ");
+    if (errors & G_TLS_CERTIFICATE_BAD_IDENTITY)
+        g_print ("bad-identity ");
+    if (errors & G_TLS_CERTIFICATE_NOT_ACTIVATED)
+        g_print ("not-activated ");
+    if (errors & G_TLS_CERTIFICATE_EXPIRED)
+        g_print ("expired ");
+    if (errors & G_TLS_CERTIFICATE_REVOKED)
+        g_print ("revoked ");
+    if (errors & G_TLS_CERTIFICATE_INSECURE)
+        g_print ("insecure ");
+    g_print (") but accepting anyway.\n");
+
+    return TRUE;
+}
+
+static gboolean
+tcti_tabrmd_call_create_connection_tls (const char       *ip_addr,
+                                        unsigned int      port,
+                                        gboolean          tls_enabled,
+                                        GTlsCertificate  *certificate,
+                                        GCancellable     *cancellable,
+                                        GIOStream       **connection,
+                                        GSocket         **socket,
+                                        guint64          *id,
+                                        GError          **error)
+{
+    GSocketType socket_type = G_SOCKET_TYPE_STREAM;
+    GSocketFamily socket_family;
+    GSocketConnectable *connectable;
+    GSocketAddressEnumerator *enumerator;
+    GIOStream *tls_conn;
+    GTlsInteraction *interaction;
+    GSocketAddress *src_address, *address = NULL;
+    const char *host_and_port = NULL;
+    GError *err = NULL;
+    int read_timeout = 1;
+
+    /* parse ip addr to get the family of socket */
+    socket_family = G_SOCKET_FAMILY_IPV4;
+
+    /* concatenate ip_addr and port */
+    if (socket_family == G_SOCKET_FAMILY_IPV4)
+        host_and_port = g_strdup_printf ("%s:%d", ip_addr, port);
+    else
+        host_and_port = g_strdup_printf ("[%s]:%d", ip_addr, port);
+
+    *socket = g_socket_new (socket_family, socket_type, 0, error);
+    if (*socket == NULL) {
+        return FALSE;
+    }
+
+    if (read_timeout)
+        g_socket_set_timeout (*socket, read_timeout);
+
+    connectable = g_network_address_parse (host_and_port,
+                                           TCTI_TABRMD_TLS_PORT_DEFAULT,
+                                           error);
+    if (connectable == NULL) {
+        g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                    "Could not parse '%s' as unix socket name", host_and_port);
+        return FALSE;
+    }
+
+    enumerator = g_socket_connectable_enumerate (connectable);
+    while (TRUE) {
+        address = g_socket_address_enumerator_next (enumerator, cancellable, error);
+        if (address == NULL) {
+            if (error != NULL && *error == NULL)
+                g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                                     "No more addresses to try");
+            return FALSE;
+        }
+        if (g_socket_connect (*socket, address, cancellable, &err))
+            break;
+        g_message ("Connection to %s failed: %s, trying next\n",
+                   socket_address_to_string (address), err->message);
+        g_clear_error (&err);
+        g_object_unref (address);
+    }
+    g_object_unref (enumerator);
+
+    g_print ("Connected to %s\n", socket_address_to_string (address));
+    g_object_unref (address);
+    src_address = g_socket_get_local_address (*socket, error);
+    if (!src_address) {
+        g_prefix_error (error, "Error getting local address: ");
+        return FALSE;
+    }
+    g_print ("local address: %s\n", socket_address_to_string (src_address));
+    *id = g_str_hash (socket_address_to_string (src_address));
+    g_object_unref (src_address);
+    *connection = G_IO_STREAM (g_socket_connection_factory_create_connection (*socket));
+
+    if (tls_enabled) {
+        tls_conn = g_tls_client_connection_new (*connection, connectable, error);
+        if (!tls_conn) {
+            g_prefix_error (error, "Could not create TLS connection: ");
+            return FALSE;
+        }
+
+        g_signal_connect (tls_conn, "accept-certificate",
+                          G_CALLBACK (check_server_certificate), NULL);
+
+        interaction = g_tls_console_interaction_new ();
+        g_tls_connection_set_interaction (G_TLS_CONNECTION (tls_conn), interaction);
+        g_object_unref (interaction);
+
+        if (certificate)
+            g_tls_connection_set_certificate (G_TLS_CONNECTION (tls_conn), certificate);
+
+        g_object_unref (*connection);
+        *connection = G_IO_STREAM (tls_conn);
+
+        if (!g_tls_connection_handshake (G_TLS_CONNECTION (tls_conn),
+                                         cancellable,
+                                         error)) {
+            g_prefix_error (error, "Error during TLS handshake: ");
+            return FALSE;
+        }
+    }
+    g_object_unref (connectable);
+
+    return TRUE;
+}
+
+TSS2_RC
+tss2_tcti_tabrmd_tls_init (TSS2_TCTI_CONTEXT      *context,
+                           size_t                 *size,
+                           const char             *ip_addr,
+                           unsigned int            port,
+                           const char             *cert_file,
+                           bool                    tls_enabled)
+{
+    GSocket *socket = NULL;
+    GCancellable *cancellable = NULL;
+    GIOStream *connection = NULL;
+    GTlsCertificate  *certificate = NULL;
+    gint fd;
+    guint64 id;
+    GError *error = NULL;
+    gboolean call_ret;
+
+    if (context == NULL && size == NULL) {
+        return TSS2_TCTI_RC_BAD_VALUE;
+    }
+    if (context == NULL && size != NULL) {
+        *size = sizeof (TSS2_TCTI_TABRMD_CONTEXT);
+        return TSS2_RC_SUCCESS;
+    }
+    if (ip_addr == NULL) {
+        //TODO more checking
+        return TSS2_TCTI_RC_BAD_VALUE;
+    }
+    if (cert_file) {
+        certificate = g_tls_certificate_new_from_file (cert_file, &error);
+        if (!certificate) {
+            g_error ("Could not read certificate '%s': %s",
+                     cert_file, error->message);
+        }
+    }
+
+    init_tcti_data (context);
+    call_ret = tcti_tabrmd_call_create_connection_tls(ip_addr,
+                                                      port,
+                                                      tls_enabled,
+                                                      certificate,
+                                                      cancellable,
+                                                      &connection,
+                                                      &socket,
+                                                      &id,
+                                                      &error);
+    if (call_ret == FALSE) {
+        g_warning ("Failed to create connection with service: %s",
+                   error->message);
+        return TSS2_TCTI_RC_NO_CONNECTION;
+    }
+    if (connection == NULL) {
+        g_error ("call to CreateConnection returned a NULL GIOStream");
+    }
+
+    /* TODO: Test non-blocking connect/handshake */
+    // g_socket_set_blocking (socket, FALSE);
+
+    TSS2_TCTI_TABRMD_IOSTREAM (context) = connection;
+
+    fd = g_socket_get_fd (socket);
+    if (fd == -1) {
+        g_error ("failed to get handle from socket: %s",
+                 error->message);
+    }
+    TSS2_TCTI_TABRMD_FD (context) = fd;
+
+    TSS2_TCTI_TABRMD_ID (context) = id;
+    g_debug ("initialized tabrmd TCTI context with id: 0x%" PRIx64,
+             TSS2_TCTI_TABRMD_ID (context));
+
+    //TODO: need to move to finalizaion function
+    //g_object_unref (socket);
+
+    return TSS2_RC_SUCCESS;
 }

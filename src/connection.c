@@ -43,6 +43,7 @@ enum {
     PROP_ID,
     PROP_FD,
     PROP_TRANSIENT_HANDLE_MAP,
+    PROP_IOSTREAM_CONN,
     N_PROPERTIES
 };
 static GParamSpec *obj_properties [N_PROPERTIES] = { NULL, };
@@ -74,6 +75,15 @@ connection_set_property (GObject       *object,
                   PRIxPTR, (uintptr_t)self,
                   (uintptr_t)self->transient_handle_map);
         break;
+    case PROP_IOSTREAM_CONN:
+        self->iostream_conn = g_value_get_object (value);
+        if (self->iostream_conn) {
+            g_object_ref (self->iostream_conn);
+        }
+        g_debug ("Connection 0x%" PRIxPTR " set iostream_conn to 0x%"
+                  PRIxPTR, (uintptr_t)self,
+                  (uintptr_t)self->iostream_conn);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
         break;
@@ -98,6 +108,9 @@ connection_get_property (GObject     *object,
     case PROP_TRANSIENT_HANDLE_MAP:
         g_value_set_object (value, self->transient_handle_map);
         break;
+    case PROP_IOSTREAM_CONN:
+        g_value_set_object (value, self->iostream_conn);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
         break;
@@ -115,11 +128,19 @@ static void
 connection_finalize (GObject *obj)
 {
     Connection *connection = CONNECTION (obj);
+    GError *error = NULL;
 
     g_debug ("connection_finalize: 0x%" PRIxPTR, (uintptr_t)connection);
     if (connection == NULL)
         return;
-    close (connection->fd);
+    if (!connection->iostream_conn)
+        close (connection->fd);
+    else {
+        if (!g_io_stream_close (connection->iostream_conn, NULL, &error)) {
+          g_error ("Error closing connection stream: %s", error->message);
+        }
+        g_object_unref (connection->iostream_conn);
+    }
     g_object_unref (connection->transient_handle_map);
     if (connection_parent_class)
         G_OBJECT_CLASS (connection_parent_class)->finalize (obj);
@@ -160,6 +181,12 @@ connection_class_init (ConnectionClass *klass)
                              "HandleMap object to map handles to transient object contexts",
                              G_TYPE_OBJECT,
                              G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY);
+    obj_properties [PROP_IOSTREAM_CONN] =
+        g_param_spec_object ("iostream_conn",
+                             "connection of type IOStream",
+                             "connection of type IOStream",
+                             G_TYPE_IO_STREAM,
+                             G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY);
     g_object_class_install_properties (object_class,
                                        N_PROPERTIES,
                                        obj_properties);
@@ -189,28 +216,37 @@ create_fd_pair (int *client_fd,
 Connection*
 connection_new (gint       *client_fd,
                 guint64     id,
-                HandleMap  *transient_handle_map)
+                HandleMap  *transient_handle_map,
+                GIOStream  *iostream_conn)
 {
 
     g_info ("CreateConnection");
     int ret, server_fd;
 
-    g_debug ("connection_new creating pipe pairs");
-    ret = create_fd_pair (client_fd, &server_fd, O_CLOEXEC);
-    if (ret == -1)
-        g_error ("CreateConnection failed to make fd pair %s", strerror (errno));
-    /* Make the fds used by the server non-blocking, the client will have to
-     * set its own flags.
-     */
-    ret = set_flags (server_fd, O_NONBLOCK);
-    if (ret == -1)
-        g_error ("Failed to set O_NONBLOCK for server receive fd %d: %s",
-                 server_fd, strerror (errno));
-
+    if (!iostream_conn) {
+        g_debug ("connection_new creating pipe pairs");
+        ret = create_fd_pair (client_fd, &server_fd, O_CLOEXEC);
+        if (ret == -1)
+            g_error ("CreateConnection failed to make fd pair %s", strerror (errno));
+        /* Make the fds used by the server non-blocking, the client will have to
+         * set its own flags.
+         */
+        ret = set_flags (server_fd, O_NONBLOCK);
+        if (ret == -1)
+            g_error ("Failed to set O_NONBLOCK for server receive fd %d: %s",
+                     server_fd, strerror (errno));
+    } else {
+        /*
+         * socket mode
+         */
+        server_fd = *client_fd;
+        *client_fd = 0;
+    }
     return CONNECTION (g_object_new (TYPE_CONNECTION,
                                      "id", id,
                                      "file-descriptor", server_fd,
                                      "transient-handle-map", transient_handle_map,
+                                     "iostream_conn", iostream_conn,
                                      NULL));
 }
 

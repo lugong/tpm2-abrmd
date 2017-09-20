@@ -28,6 +28,7 @@ TESTS_UNIT = \
     test/handle-map_unit \
     test/ipc-frontend_unit \
     test/ipc-frontend-dbus_unit \
+    test/ipc-frontend-tls_unit \
     test/random_unit \
     test/session-entry_unit \
     test/test-skeleton_unit \
@@ -154,6 +155,7 @@ VALGRIND_memcheck_FLAGS = --leak-check=summary --show-leak-kinds=definite,indire
 # This is a hack required to ensure that BUILT_SOURCES are generated before
 # the file that requires them.
 src/ipc-frontend-dbus.c : $(BUILT_SOURCES)
+src/ipc-frontend-tls.c : $(BUILT_SOURCES)
 
 # utility library with most of the code that makes up the daemon
 src_libutil_la_LIBADD  = $(DBUS_LIBS) $(GIO_LIBS) $(GLIB_LIBS) $(PTHREAD_LIBS) \
@@ -171,6 +173,8 @@ src_libutil_la_SOURCES = \
     src/connection-manager.h \
     src/control-message.c \
     src/control-message.h \
+    src/gtlsconsoleinteraction.c \
+    src/gtlsconsoleinteraction.h \
     src/handle-map-entry.c \
     src/handle-map-entry.h \
     src/handle-map.c \
@@ -179,6 +183,8 @@ src_libutil_la_SOURCES = \
     src/ipc-frontend.h \
     src/ipc-frontend-dbus.h \
     src/ipc-frontend-dbus.c \
+    src/ipc-frontend-tls.h \
+    src/ipc-frontend-tls.c \
     src/logging.c \
     src/logging.h \
     src/message-queue.c \
@@ -355,6 +361,10 @@ test_ipc_frontend_unit_SOURCES = test/ipc-frontend_unit.c
 test_ipc_frontend_dbus_unit_CFLAGS  = $(UNIT_AM_CFLAGS)
 test_ipc_frontend_dbus_unit_LDADD   = $(CMOCKA_LIBS) $(GLIB_LIBS) $(GOBJECT_LIBS) $(libutil)
 test_ipc_frontend_dbus_unit_SOURCES = test/ipc-frontend-dbus_unit.c
+
+test_ipc_frontend_tls_unit_CFLAGS  = $(UNIT_AM_CFLAGS)
+test_ipc_frontend_tls_unit_LDADD   = $(CMOCKA_LIBS) $(GLIB_LIBS) $(GOBJECT_LIBS) $(libutil)
+test_ipc_frontend_tls_unit_SOURCES = test/ipc-frontend-tls_unit.c
 
 if TCTI_DEVICE
 test_tcti_device_unit_CFLAGS   = $(UNIT_AM_CFLAGS)

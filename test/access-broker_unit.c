@@ -179,7 +179,7 @@ access_broker_setup_with_command (void **state)
     buffer_size = TPM_HEADER_SIZE;
     buffer = calloc (1, buffer_size);
     handle_map = handle_map_new (TPM_HT_TRANSIENT, MAX_ENTRIES_DEFAULT);
-    data->connection = connection_new (&client_fd, 0, handle_map);
+    data->connection = connection_new (&client_fd, 0, handle_map, NULL);
     g_object_unref (handle_map);
     data->command = tpm2_command_new (data->connection,
                                       buffer,

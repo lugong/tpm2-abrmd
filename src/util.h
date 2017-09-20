@@ -28,6 +28,7 @@
 #define UTIL_H
 
 #include <glib.h>
+#include <gio/gio.h>
 #include <sys/types.h>
 #include <sapi/tpm20.h>
 
@@ -56,15 +57,18 @@
 
 ssize_t     write_all                       (gint const        fd,
                                              void const       *buf,
-                                             size_t const      size);
+                                             size_t const      size,
+                                             GIOStream        *conn);
 int         read_data                       (int               fd,
                                              size_t           *index,
                                              uint8_t          *buf,
-                                             size_t            count);
+                                             size_t            count,
+                                             GIOStream        *conn);
 int         read_tpm_buffer                 (int               fd,
                                              size_t           *index,
                                              uint8_t          *buf,
-                                             size_t            buf_size);
+                                             size_t            buf_size,
+                                             GIOStream        *conn);
 void        g_debug_bytes                   (uint8_t const    *byte_array,
                                              size_t            array_size,
                                              size_t            width,
@@ -72,4 +76,5 @@ void        g_debug_bytes                   (uint8_t const    *byte_array,
 void        g_debug_tpma_cc                 (TPMA_CC           tpma_cc);
 int         set_flags                       (const int         fd,
                                              const int         flags);
+char *      socket_address_to_string        (GSocketAddress   *address);
 #endif /* UTIL_H */

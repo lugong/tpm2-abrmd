@@ -130,7 +130,7 @@ resource_manager_setup (void **state)
     handle_map = handle_map_new (TPM_HT_TRANSIENT, MAX_ENTRIES_DEFAULT);
     data->access_broker = access_broker_new (TCTI (data->tcti_echo));
     data->resource_manager = resource_manager_new (data->access_broker);
-    data->connection = connection_new (&data->client_fd, 10, handle_map);
+    data->connection = connection_new (&data->client_fd, 10, handle_map, NULL);
     g_object_unref (handle_map);
 
     *state = data;

@@ -31,12 +31,14 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
 #include <sapi/tpm20.h>
 #include <sapi/tss2_tcti.h>
 
 #define TCTI_TABRMD_DBUS_INTERFACE_DEFAULT "com.intel.tss2.TctiTabrmd"
 #define TCTI_TABRMD_DBUS_NAME_DEFAULT      "com.intel.tss2.Tabrmd"
 #define TCTI_TABRMD_DBUS_TYPE_DEFAULT      TCTI_TABRMD_DBUS_TYPE_SYSTEM
+#define TCTI_TABRMD_TLS_PORT_DEFAULT       4433
 
 typedef enum {
     TCTI_TABRMD_DBUS_TYPE_SESSION,
@@ -48,6 +50,12 @@ TSS2_RC tss2_tcti_tabrmd_init_full (TSS2_TCTI_CONTEXT      *context,
                                     size_t                 *size,
                                     TCTI_TABRMD_DBUS_TYPE   bus,
                                     const char             *name);
+TSS2_RC tss2_tcti_tabrmd_tls_init (TSS2_TCTI_CONTEXT      *context,
+                                   size_t                 *size,
+                                   const char             *ip_addr,
+                                   unsigned int            port,
+                                   const char             *cert_file,
+                                   bool                    tls_enabled);
 
 #ifdef __cplusplus
 }

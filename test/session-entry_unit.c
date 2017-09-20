@@ -53,7 +53,8 @@ session_entry_setup (void **state)
     data->handle_map = handle_map_new (TPM_HT_TRANSIENT, 100);
     data->connection = connection_new (&data->client_fd,
                                        CLIENT_ID,
-                                       data->handle_map);
+                                       data->handle_map,
+                                       NULL);
     data->session_entry = session_entry_new (data->connection, TEST_HANDLE);
 
     *state = data;
