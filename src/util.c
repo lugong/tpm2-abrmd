@@ -323,6 +323,52 @@ create_socket_pair (int *fd_a,
     *fd_b = fds [1];
     return 0;
 }
+/*
+ * Generate ip and port string according to RFC 3986.
+ */
+char *
+socket_address_to_string (GSocketAddress *address)
+{
+    GInetAddress *inet_address;
+    char *str;
+    int port;
+    char *res = NULL;
+    GSocketFamily family;
+
+    if (!G_IS_INET_SOCKET_ADDRESS (address))
+        return NULL;
+
+    inet_address = g_inet_socket_address_get_address (
+                     G_INET_SOCKET_ADDRESS (address));
+    str = g_inet_address_to_string (inet_address);
+    port = g_inet_socket_address_get_port (
+                     G_INET_SOCKET_ADDRESS (address));
+    family = g_inet_address_get_family (inet_address);
+    if (family == G_SOCKET_FAMILY_IPV4)
+        res = g_strdup_printf ("%s:%d", str, port);
+    else
+        res = g_strdup_printf ("[%s]:%d", str, port);
+    g_free (str);
+
+    return res;
+}
+/*
+ * Roughly derive the socket family from the ip string.
+ */
+GSocketFamily
+check_ipstring_family (const char *ipstring)
+{
+    GSocketFamily family;
+
+    if (strchr (ipstring, '.'))
+       family = G_SOCKET_FAMILY_IPV4;
+    else if (strchr (ipstring, ':'))
+       family = G_SOCKET_FAMILY_IPV6;
+    else
+       family = G_SOCKET_FAMILY_INVALID;
+
+    return family;
+}
 /* pretty print */
 void
 g_debug_tpma_cc (TPMA_CC tpma_cc)

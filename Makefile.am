@@ -30,6 +30,7 @@ TESTS_UNIT = \
     test/handle-map_unit \
     test/ipc-frontend_unit \
     test/ipc-frontend-dbus_unit \
+    test/ipc-frontend-tls_unit \
     test/random_unit \
     test/session-entry_unit \
     test/test-skeleton_unit \
@@ -40,6 +41,7 @@ TESTS_UNIT = \
     test/tpm2-command_unit \
     test/tpm2-response_unit \
     test/tss2-tcti-tabrmd_unit \
+    test/tss2-tcti-tabrmd-tls_unit \
     test/tss2-tcti-echo_unit \
     test/util_unit
 endif #UNIT
@@ -123,7 +125,8 @@ uninstall-local:
 	-rm $(DESTDIR)$(udevrulesdir)/$(udevrulesprefix)tpm-udev.rules
 
 libtcti_tabrmddir      = $(includedir)/tcti
-libtcti_tabrmd_HEADERS = $(srcdir)/src/include/tcti-tabrmd.h
+libtcti_tabrmd_HEADERS = $(srcdir)/src/include/tcti-tabrmd.h \
+                         $(srcdir)/src/include/tcti-tabrmd-tls.h
 
 EXTRA_DIST = \
     src/tabrmd.xml \
@@ -212,6 +215,8 @@ src_libutil_la_SOURCES = \
     src/ipc-frontend.h \
     src/ipc-frontend-dbus.h \
     src/ipc-frontend-dbus.c \
+    src/ipc-frontend-tls.h \
+    src/ipc-frontend-tls.c \
     src/logging.c \
     src/logging.h \
     src/message-queue.c \
@@ -266,7 +271,12 @@ test_integration_libtest_la_SOURCES = \
 src_libtcti_tabrmd_la_LIBADD   = $(DBUS_LIBS) $(GIO_LIBS) $(GLIB_LIBS) \
     $(PTHREAD_LIBS) $(noinst_LTLIBRARIES) $(SAPI_LIBS)
 src_libtcti_tabrmd_la_LDFLAGS = -fPIC -Wl,--no-undefined -Wl,--version-script=$(srcdir)/src/tcti-tabrmd.map
-src_libtcti_tabrmd_la_SOURCES = src/tcti-tabrmd.c src/tcti-tabrmd-priv.h $(srcdir)/src/tcti-tabrmd.map
+src_libtcti_tabrmd_la_SOURCES = \
+    src/tcti-tabrmd.c \
+    src/tcti-tabrmd-priv.h \
+    src/tcti-tabrmd-tls.c \
+    src/tcti-tabrmd-tls-priv.h \
+    $(srcdir)/src/tcti-tabrmd.map
 
 src_libtcti_echo_la_LIBADD  = $(DBUS_LIBS) $(GLIB_LIBS)
 src_libtcti_echo_la_SOURCES = \
@@ -378,6 +388,10 @@ test_ipc_frontend_dbus_unit_CFLAGS  = $(UNIT_AM_CFLAGS)
 test_ipc_frontend_dbus_unit_LDADD   = $(CMOCKA_LIBS) $(GLIB_LIBS) $(GOBJECT_LIBS) $(libutil)
 test_ipc_frontend_dbus_unit_SOURCES = test/ipc-frontend-dbus_unit.c
 
+test_ipc_frontend_tls_unit_CFLAGS  = $(UNIT_AM_CFLAGS)
+test_ipc_frontend_tls_unit_LDADD   = $(CMOCKA_LIBS) $(GLIB_LIBS) $(GOBJECT_LIBS) $(libutil)
+test_ipc_frontend_tls_unit_SOURCES = test/ipc-frontend-tls_unit.c
+
 test_logging_unit_CFLAGS  = $(UNIT_AM_CFLAGS)
 test_logging_unit_LDADD   = $(CMOCKA_LIBS) $(GLIB_LIBS) $(GOBJECT_LIBS) $(libutil)
 test_logging_unit_LDFLAGS = -Wl,--wrap=getenv,--wrap=syslog
@@ -441,6 +455,11 @@ test_tss2_tcti_tabrmd_unit_CFLAGS  = $(UNIT_AM_CFLAGS)
 test_tss2_tcti_tabrmd_unit_LDFLAGS = -Wl,--wrap=g_dbus_proxy_call_with_unix_fd_list_sync,--wrap=tcti_tabrmd_call_cancel_sync,--wrap=tcti_tabrmd_call_set_locality_sync,--wrap=read_data,--wrap=poll
 test_tss2_tcti_tabrmd_unit_LDADD   = $(CMOCKA_LIBS) $(GIO_LIBS) $(libutil)
 test_tss2_tcti_tabrmd_unit_SOURCES = src/tcti-tabrmd.c test/tss2-tcti-tabrmd_unit.c
+
+test_tss2_tcti_tabrmd_tls_unit_CFLAGS  = $(UNIT_AM_CFLAGS)
+test_tss2_tcti_tabrmd_tls_unit_LDFLAGS = -Wl,--wrap=g_str_hash,--wrap=read_data,--wrap=poll
+test_tss2_tcti_tabrmd_tls_unit_LDADD   = $(CMOCKA_LIBS) $(GIO_LIBS) $(libutil)
+test_tss2_tcti_tabrmd_tls_unit_SOURCES = src/tcti-tabrmd-tls.c test/tss2-tcti-tabrmd-tls_unit.c
 
 test_tss2_tcti_echo_unit_CFLAGS  = $(UNIT_AM_CFLAGS)
 test_tss2_tcti_echo_unit_LDADD   = $(CMOCKA_LIBS) $(libtcti_echo)

@@ -75,5 +75,8 @@ GIOStream*  create_connection_iostream      (int              *client_fd);
 int         create_socket_pair              (int              *fd_a,
                                              int              *fd_b,
                                              int               flags);
+char *      socket_address_to_string        (GSocketAddress   *address);
+GSocketFamily
+            check_ipstring_family           (const char       *ipstring);
 void        g_debug_tpma_cc                 (TPMA_CC           tpma_cc);
 #endif /* UTIL_H */

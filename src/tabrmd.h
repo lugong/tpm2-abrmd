@@ -71,6 +71,8 @@
     .max_sessions = TABRMD_SESSIONS_MAX_DEFAULT, \
     .dbus_name = TABRMD_DBUS_NAME_DEFAULT, \
     .prng_seed_file = TABRMD_ENTROPY_SRC_DEFAULT, \
+    .socket_ip = IPC_FRONTEND_SOCKET_IP_DEFAULT, \
+    .socket_port = IPC_FRONTEND_SOCKET_PORT_DEFAULT, \
     .allow_root = FALSE, \
     .tcti_filename = TABRMD_TCTI_FILENAME_DEFAULT, \
     .tcti_conf = TABRMD_TCTI_CONF_DEFAULT, \
@@ -84,6 +86,10 @@ typedef struct tabrmd_options {
     guint           max_sessions;
     gchar          *dbus_name;
     const gchar    *prng_seed_file;
+    gchar          *socket_ip;
+    guint           socket_port;
+    const gchar    *cert_file;
+    gboolean        ipc_mode_dbus;
     gboolean        allow_root;
     gchar          *tcti_filename;
     gchar          *tcti_conf;

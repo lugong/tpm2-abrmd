@@ -28,6 +28,7 @@
 #include <fcntl.h>
 #include <gio/gio.h>
 #include <glib.h>
+#include <glib/gstdio.h>
 #include <glib-unix.h>
 #include <inttypes.h>
 #include <stdlib.h>
@@ -45,6 +46,7 @@
 #include "command-source.h"
 #include "ipc-frontend.h"
 #include "ipc-frontend-dbus.h"
+#include "ipc-frontend-tls.h"
 #include "random.h"
 #include "resource-manager.h"
 #include "response-sink.h"
@@ -154,12 +156,21 @@ init_thread_func (gpointer user_data)
         g_error ("failed to allocate connection_manager");
     g_debug ("ConnectionManager: 0x%" PRIxPTR, (uintptr_t)connection_manager);
     /* setup IpcFrontend */
-    data->ipc_frontend =
-        IPC_FRONTEND (ipc_frontend_dbus_new (data->options.bus,
-                                             data->options.dbus_name,
-                                             connection_manager,
-                                             data->options.max_transient_objects,
-                                             data->random));
+    if (data->options.ipc_mode_dbus) {
+        data->ipc_frontend=
+            IPC_FRONTEND (ipc_frontend_dbus_new (data->options.bus,
+                                                 data->options.dbus_name,
+                                                 connection_manager,
+                                                 data->options.max_transient_objects,
+                                                 data->random));
+    } else {
+        data->ipc_frontend =
+            IPC_FRONTEND (ipc_frontend_tls_new (data->options.socket_ip,
+                                                data->options.socket_port,
+                                                connection_manager,
+                                                data->options.max_transient_objects,
+                                                data->options.cert_file));
+    }
     if (data->ipc_frontend == NULL) {
         g_error ("failed to allocate IpcFrontend object");
     }
@@ -339,6 +350,7 @@ parse_opts (gint            argc,
             tabrmd_options_t *options)
 {
     gchar *logger_name = "stdout", *tcti_optconf = NULL;
+    gchar *ipc_mode = "dbus";
     GOptionContext *ctx;
     GError *err = NULL;
     gboolean session_bus = FALSE;
@@ -365,6 +377,14 @@ parse_opts (gint            argc,
         { "prng-seed-file", 'g', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING,
           &options->prng_seed_file, "File to read seed value for PRNG",
           options->prng_seed_file },
+        { "socket-ip", 'a', 0, G_OPTION_ARG_STRING, &options->socket_ip,
+          "Local address to bind to." },
+        { "socket-port", 'p', 0, G_OPTION_ARG_INT, &options->socket_port,
+          "Local port to bind to." },
+        { "tls-cert", 'k', 0, G_OPTION_ARG_FILENAME, &options->cert_file,
+          "Use TLS (SSL) with indicated server certificate" },
+        { "ipc_mode", 'i', 0, G_OPTION_ARG_STRING, &ipc_mode,
+          "The name of desired ipc mode, dbus is default.", "[dbus|tls]"},
         { "version", 'v', G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
           show_version, "Show version string" },
         { "allow-root", 'o', 0, G_OPTION_ARG_NONE,
@@ -415,6 +435,18 @@ parse_opts (gint            argc,
                           &options->tcti_conf)) {
         tabrmd_critical ("bad tcti conf string");
     }
+    /* check the availability of certificate file */
+    if (options->cert_file && g_access (options->cert_file, R_OK)) {
+        tabrmd_critical ("certificate file not accessible: %s", strerror(errno));
+    }
+    if (!g_strcmp0(ipc_mode, "dbus")) {
+        options->ipc_mode_dbus = TRUE;
+    } else if (!g_strcmp0(ipc_mode, "tls")) {
+        options->ipc_mode_dbus = FALSE;
+    } else {
+        tabrmd_critical ("IPC mode %s is not supported", ipc_mode);
+    }
+    g_info ("IPC mode is %s", options->ipc_mode_dbus? "dbus" : "tls");
     g_option_context_free (ctx);
 }
 void
